@@ -2,6 +2,8 @@
 #include<sys/stat.h>
 #include<dirent.h>
 #include<string.h>
+#include<malloc.h>
+#include<stdlib.h>
 
 void copyFile(char* source, char* dest);  // 复制文件
 char* getFileName(char* source);  // 获得文件名
@@ -13,15 +15,28 @@ char* strConcat(char* dest, char* src);  // 拼接字符串
 char* fullPathCat(char* path, char* filename);  // 拼接为绝对路径
 
 // 复制文件
-void copyFile(char* source, char* dest){
-	FILE* fpSource = fopen(source, "r");
-	FILE* fpDest = fopen(dest, "w");
-	int ch = 0;
-	while((ch = fgetc(fpSource)) != EOF){
-		fputc(ch, fpDest);
+void copyFile(char *source,char *dest){
+    FILE *source_fp,*dest_fp;
+	int ch;
+
+    //Open
+    if((source_fp = fopen(source,"rb")) == NULL){
+        fprintf(stderr,"ERROR: can't open %s.\n",source);
+        exit(EXIT_FAILURE);     
 	}
-	fclose(fpSource);
-	fclose(fpDest);
+
+    if((dest_fp = fopen(dest,"wb")) == NULL){
+    	fprintf(stderr,"ERROR: can't create %s.\n",dest);
+        exit(EXIT_FAILURE);    
+    }
+    //Copy       
+    while((ch = getc(source_fp)) != EOF){
+        putc(ch,dest_fp);
+    }
+    
+    //Close
+    fclose(source_fp);
+    fclose(dest_fp);
 }
 
 // 获得文件名
@@ -49,7 +64,7 @@ int isDir(char* filename){
 
 // 在文件末尾添加斜线
 char* addSlash(char filename[]){
-	static char result[100] = {'\0'};
+	char* result = (char*)malloc(256*sizeof(char));
 	strcpy(result, filename);
 	strcat(result, "/");
 	return result;
@@ -67,7 +82,7 @@ int isEndWithSlash(char filename[]){
 // 拼接字符串
 char* strConcat(char* dest, char* src){
 	// 在堆中分配内存，返回字符串；不能直接返回局部变量。
-	char* result = (char*)malloc(50);
+	char* result = (char*)malloc(256*sizeof(char));
 	strcpy(result, dest);
 	strcat(result, src);
 	return result;
@@ -88,6 +103,7 @@ void mycopy(char src[], char dest[]){
 		return;
 	}
 
+
 	// 如果src是非目录文件，则拷贝到目标目录下
 	if(isDir(src) == 0){
 		char* newFile = fullPathCat(dest, getFileName(src));
@@ -101,7 +117,6 @@ void mycopy(char src[], char dest[]){
 		// 在dest路径下，新建一个与src同名的dir
 		char* newDestDir = fullPathCat(dest, dirName);
 		mkdir(newDestDir, 0777);
-
 		// 打开源目录
 		DIR* srcOpen = opendir(src);
 		if(srcOpen == NULL){
@@ -111,13 +126,12 @@ void mycopy(char src[], char dest[]){
 		
 		// 遍历每个srcdir中的每个文件
 		struct dirent* currentdp = readdir(srcOpen);
-	
+		
 		while(currentdp != NULL){
 			// 生成待复制的子文件的绝对路径
 			char* childSrcFile = fullPathCat(src, currentdp->d_name);
 			// 如果为'.' 或 '..'，则不复制
 			if(currentdp->d_name[0] == '.'){
-				printf("跳过了文件: %s\n", currentdp->d_name);
 				currentdp = readdir(srcOpen);
 				continue;
 			}
@@ -127,12 +141,9 @@ void mycopy(char src[], char dest[]){
 				char* childDestDir = newDestDir;
 				mycopy(childSrcFile, childDestDir);
 			}
-			
 			// 如果待复制的子文件非目录文件，则复制到刚刚创建的目录下
 			else{
 				char* childDestFile = fullPathCat(newDestDir, currentdp->d_name);
-				puts(childSrcFile);
-				puts(childDestFile);
 				copyFile(childSrcFile, childDestFile);
 			}
 
@@ -140,6 +151,7 @@ void mycopy(char src[], char dest[]){
 		}
 		closedir(srcOpen);
 	}
+	
 }
 
 
